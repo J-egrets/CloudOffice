@@ -1,0 +1,66 @@
+package cn.egret.server.controller;
+
+
+import cn.egret.server.pojo.Admin;
+import cn.egret.server.pojo.RespBean;
+import cn.egret.server.service.IAdminService;
+import cn.egret.server.utils.ImageUtils;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.Map;
+
+/**
+ * 个人中心
+ * @author egret
+ */
+@RestController
+public class AdminInfoController {
+    @Autowired
+    private IAdminService adminService;
+
+    @ApiOperation(value = "更新当前用户信息")
+    @PutMapping("/admin/info")
+    public RespBean updateAdmin(@RequestBody Admin admin, Authentication authentication) {
+        //更新成功,重新构建Authentication对象
+        if (adminService.updateById(admin)) {
+            /**
+             * 1.用户对象
+             * 2.凭证（密码）
+             * 3.用户角色（权限）
+             */
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(admin, authentication.getCredentials(), authentication.getAuthorities()));
+            return RespBean.success("更新成功");
+        }
+        return RespBean.error("更新失败");
+    }
+
+    @ApiOperation(value = "更新用户密码")
+    @PutMapping("/admin/pass")
+    public RespBean updateAdminPassword(@RequestBody Map<String, Object> info) {
+        String oldPass = (String) info.get("oldPass");
+        String pass = (String) info.get("pass");
+        Integer adminId = (Integer) info.get("adminId");
+        return adminService.updatePassword(oldPass, pass, adminId);
+    }
+
+    @ApiOperation(value = "更新用户头像")
+    @ApiImplicitParams({@ApiImplicitParam(name = "file", value = "头像", dataType = "MultipartFile")})
+    @PutMapping("/admin/userface")
+    public RespBean updateUserFace(MultipartFile file, Integer id, Authentication authentication, HttpServletRequest request) throws IOException {
+        //获取文件上传地址
+        String url = ImageUtils.upload(file,request);
+        return adminService.updateAdminUserFace(url,id,authentication);
+    }
+}
